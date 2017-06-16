@@ -1,3 +1,5 @@
 .DS_Store
 *.xls
 *.swp
+.csv
+!fund_dictionary.csv
