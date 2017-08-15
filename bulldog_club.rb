@@ -1,7 +1,32 @@
-require './sheets.rb'
 require 'fileutils'
 require 'csv'
 require 'spreadsheet'
+
+def fill_out_sheet(sheet, transactions)
+  transactions.each_with_index do |t, i|
+    sheet.update_row (i+1),
+      t['Received Date'],
+      t['Banner ID'],
+      t['Payment Amount'],
+      t['Receipted Account Name'],
+      t['Fund #'],
+      t['Pay Method'],
+      t['Fund Bill Address Line1'],
+      t['Fund Bill Address Line2'],
+      t['Fund Bill Address Line3'],
+      t['Fund Bill City'],
+      t['Fund Bill State'],
+      t['Fund Bill Zip Code'],
+      t['Allocation'],
+      t['Paycode Name'],
+      t['Account Name'],
+      t['First Name'],
+      t['Last Name'],
+      t['Phone Dev Home'],
+      t['Phone Dev Cell'],
+      t['Informal Salutation']
+  end
+end
 
 bdc_file = ARGV.first
 
@@ -16,11 +41,11 @@ fund_numbers = funds['Fund Number'] # Extract Fund Numbers to array.
 funds = fund_names.zip(fund_numbers).to_h # Convert funds to hash.
 
 # Read gifts from csv.
-gift_headers = CSV.read(bdc_file, headers: true).headers
+gift_headers = CSV.read(bdc_file, headers: true, encoding: 'windows-1251:utf-8').headers
 # gifts = CSV.read('bdc_orig.csv', headers: true)
 
 gifts = []
-CSV.foreach(bdc_file, headers: true) do |gift|
+CSV.foreach(bdc_file, headers: true, encoding: 'windows-1251:utf-8') do |gift|
   gifts << gift
 end
 
@@ -30,7 +55,6 @@ original = book.create_worksheet name: 'ORIGINAL'
 entry = book.create_worksheet name: 'ENTRY'
 adj = book.create_worksheet name: 'ADJ'
 data_mgt = book.create_worksheet name: 'DATA MGT'
-xos = book.create_worksheet name: 'XOS'
 
 # Add ORIGINAL headers.
 gift_headers.each do |header|
@@ -47,23 +71,23 @@ end
 # Clean up gifts.
 # =================
 
-# Clean Banner IDs ('User Defined Field 2' on BC Report).
+# Clean Banner IDs ('Banner ID' on BC Report).
 gifts.each do |g|
   # Convert nil Banner IDs to empty strings.
-  g['User Defined Field 2'] = g['User Defined Field 2'].to_s
+  g['Banner ID'] = g['Banner ID'].to_s
   # Remove any dashes.
-  g['User Defined Field 2'].gsub!(/[-]/, '')
+  g['Banner ID'].gsub!(/[-]/, '')
   # Strip any extra numbers.
-  g['User Defined Field 2'] = g['User Defined Field 2'][0..8]
+  g['Banner ID'] = g['Banner ID'][0..8]
   # Set invalid IDs to blank strings.
-  unless g['User Defined Field 2'] =~ /^[0-9]{9}$/
-    g['User Defined Field 2'] = ''
+  unless g['Banner ID'] =~ /^[0-9]{9}$/
+    g['Banner ID'] = ''
   end
 end
 
 # Clean phone numbers.
 gifts.each do |g|
-  [g['Home Phone'], g['Mobile Phone'], g['Work Phone']].each do |phone|
+  [g['Phone Dev Home'], g['Phone Dev Cell']].each do |phone|
     phone = phone.to_s
     phone.gsub!(/[-()_\.\s]/, '') # Remove any symbols
     phone.insert(3, '-') unless phone.length < 3 # Add first hyphen.
@@ -72,24 +96,24 @@ gifts.each do |g|
 end
 
 # Sort gifts by Banner ID.
-gifts.sort_by! { |gift| gift['User Defined Field 2'] }
+gifts.sort_by! { |gift| [gift['Banner ID'], gift['Account ID']] }
 
 # Calculate gift_total
 gift_total = 0
-gifts.each { |g| gift_total += g['Transaction Amount'].to_f }
+gifts.each { |g| gift_total += g['Payment Amount'].to_f }
 gift_total = gift_total.round(2)
 
 # Update gifts.
 gifts.each do |g|
   # Update Fund Number.
-  if !funds[g['Allocation Name']].nil?
-    g['Fund #'] = funds[g['Allocation Name']]
+  if !funds[g['Allocation']].nil?
+    g['Fund #'] = funds[g['Allocation']]
   else
     g['Fund #'] = '000000'
   end
 
   # Update Pay Method.
-  if g['Payment Type'] == 'GIK'
+  if g['Paycode Name'] == 'GIK'
     g['Pay Method'] = 'BI'
   else
     g['Pay Method'] = 'BC'
@@ -100,15 +124,15 @@ end
 # Find adjustments.
 # ==================
 
-# Find adjustment_ids (AD Numbers).
+# Find adjustment_ids (Account IDs).
 adjustment_ids = []
 gifts.each do |g|
-  adjustment_ids << g['AD Number'] if g['Transaction Amount'].to_f < 0
+  adjustment_ids << g['Account ID'] if g['Payment Amount'].to_f < 0
 end
 
 # Fund adjustments from adjustment_ids.
 adjustments = []
-gifts.each { |g| adjustments << g if adjustment_ids.include?(g['AD Number']) }
+gifts.each { |g| adjustments << g if adjustment_ids.include?(g['Account ID']) }
 
 # Remove adjustments from gifts list.
 gifts -= adjustments
@@ -119,13 +143,13 @@ gifts -= adjustments
 
 gifts_with_no_id = []
 gifts.each do |gift|
-  gifts_with_no_id << gift if gift['User Defined Field 2'].empty?
+  gifts_with_no_id << gift if gift['Banner ID'].empty?
 end
 
 entry_headers = 'Paid Date',
                 'Banner ID',
                 'Amount Paid',
-                'Receipted Account Name',
+                'Account Name',
                 'Fund #',
                 'Pay Method',
                 'Address Line 1',
@@ -135,50 +159,13 @@ entry_headers = 'Paid Date',
                 'State',
                 'Zip Code',
                 'Fund Name',
-                'XOS Acct #',
                 'Transaction Type',
                 'Account Name',
                 'First Name',
                 'Last Name',
                 'Home Phone',
                 'Mobile Phone',
-                'Work Phone',
-                'All Email Addresses',
-                'Transaction Type',
-                'Salutation',
-                'Attention Name',
-                'Company',
-                'County',
-                'Country'
-
-xos_headers =  'Paid Date',
-               'XOS Acct #',
-               'Banner ID',
-               'Address Line 1',
-               'Address Line 2',
-               'Address Line 3',
-               'City',
-               'State',
-               'Zip Code',
-               'Amount Paid',
-               'Receipted Account Name',
-               'Fund #',
-               'Pay Method',
-               'Fund Name',
-               'Transaction Type',
-               'Account Name',
-               'First Name',
-               'Last Name',
-               'Home Phone',
-               'Mobile Phone',
-               'Work Phone',
-               'All Email Addresses',
-               'Transaction Type',
-               'Salutation',
-               'Attention Name',
-               'Company',
-               'County',
-               'Country'
+                'Salutation'
 
 # Add ENTRY, ADJ, DATA MGT headers.
 [entry, adj, data_mgt].each do |sheet|
@@ -187,16 +174,10 @@ xos_headers =  'Paid Date',
   end
 end
 
-# Add XOS headers.
-xos_headers.each do |header|
-  xos.row(0).push header
-end
-
 # Add ENTRY records.
-Sheets.fill_out_sheet(entry, gifts)
-Sheets.fill_out_sheet(adj, adjustments)
-Sheets.fill_out_sheet(data_mgt, gifts_with_no_id)
-Sheets.fill_out_xos(xos, gifts)
+fill_out_sheet(entry, gifts)
+fill_out_sheet(adj, adjustments)
+fill_out_sheet(data_mgt, gifts_with_no_id)
 
 # Generate Excel spreadsheet.
 wb_name = "bdc_report_#{DateTime.now.strftime('%y%m%dT%H%M%S%z')}.xls"
