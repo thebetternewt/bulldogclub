@@ -2,6 +2,13 @@ require 'fileutils'
 require 'csv'
 require 'spreadsheet'
 
+def gift_valid?(gift)
+  return false if gift['Account ID'].to_s.empty?
+  return false if gift['Allocation'] == 'Facilities Rental Facilities'
+  return false if gift['Allocation'] == 'Facilities Rental Suites'
+  true
+end
+
 def fill_out_sheet(sheet, transactions)
   transactions.each_with_index do |t, i|
     sheet.update_row (i+1),
@@ -46,10 +53,7 @@ gift_headers = CSV.read(bdc_file, headers: true, encoding: 'windows-1251:utf-8')
 
 gifts = []
 CSV.foreach(bdc_file, headers: true, encoding: 'windows-1251:utf-8') do |gift|
-  unless (gift['Allocation'] == 'Facilities Rental Facilities') ||
-         (gift['Allocation'] == 'Facilities Rental Suites')
-    gifts << gift
-  end
+    gifts << gift if gift_valid?(gift)
 end
 
 # Create Excel workbook with sheets.
