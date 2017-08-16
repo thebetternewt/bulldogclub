@@ -46,7 +46,10 @@ gift_headers = CSV.read(bdc_file, headers: true, encoding: 'windows-1251:utf-8')
 
 gifts = []
 CSV.foreach(bdc_file, headers: true, encoding: 'windows-1251:utf-8') do |gift|
-  gifts << gift
+  unless (gift['Allocation'] == 'Facilities Rental Facilities') ||
+         (gift['Allocation'] == 'Facilities Rental Suites')
+    gifts << gift
+  end
 end
 
 # Create Excel workbook with sheets.
