@@ -4,8 +4,8 @@ require 'spreadsheet'
 
 def gift_valid?(gift)
   return false if gift['Account ID'].to_s.empty?
-  return false if gift['Allocation'] == 'Facilities Rental Facilities'
-  return false if gift['Allocation'] == 'Facilities Rental Suites'
+  return false if gift['Account Name'] == 'Facilities Rentals Facilities'
+  return false if gift['Account Name'] == 'Facilities Rentals Suites'
   true
 end
 
@@ -87,7 +87,7 @@ gifts.each do |g|
   # Strip any extra numbers.
   g['Banner ID'] = g['Banner ID'][0..8]
   # Set invalid IDs to blank strings.
-  unless g['Banner ID'] =~ /^[0-9]{9}$/
+  unless g['Banner ID'] =~ /^[0-9]{9}$||^[AC][0-9]{7}$/
     g['Banner ID'] = ''
   end
 end
