@@ -6,6 +6,7 @@ def gift_valid?(gift)
   return false if gift['Account ID'].to_s.empty?
   return false if gift['Allocation'] == 'Facilities Rental Facilities'
   return false if gift['Allocation'] == 'Facilities Rental Suites'
+  return false if gift['Last Name']  == 'Matching Gift Company'
   true
 end
 
@@ -13,25 +14,24 @@ def fill_out_sheet(sheet, transactions)
   transactions.each_with_index do |t, i|
     sheet.update_row (i+1),
       t['Received Date'],
-      t['Banner ID'],
+      t['Banner'],
       t['Payment Amount'],
-      t['Receipted Account Name'],
       t['Fund #'],
       t['Pay Method'],
-      t['Fund Bill Address Line1'],
-      t['Fund Bill Address Line2'],
-      t['Fund Bill Address Line3'],
-      t['Fund Bill City'],
-      t['Fund Bill State'],
-      t['Fund Bill Zip Code'],
+      t['Billing Address1'],
+      t['Billing Address2'],
+      t['Billing Address3'],
+      t['Billing Address City'],
+      t['Billing Address State'],
+      t['Billing Address Zip Code'],
       t['Allocation'],
       t['Paycode Name'],
-      t['Account Name'],
+      t['Receipted Account Name'],
       t['First Name'],
       t['Last Name'],
-      t['Phone Dev Home'],
-      t['Phone Dev Cell'],
-      t['Informal Salutation']
+      # t['Phone Dev Home'],
+      # t['Phone Dev Cell'],
+      t['Preferred Email Address']
   end
 end
 
@@ -78,32 +78,38 @@ end
 # Clean up gifts.
 # =================
 
-# Clean Banner IDs ('Banner ID' on BC Report).
 gifts.each do |g|
   # Convert nil Banner IDs to empty strings.
-  g['Banner ID'] = g['Banner ID'].to_s
+  g['Banner'] = g['Banner'].to_s
+
   # Remove any dashes.
-  g['Banner ID'].gsub!(/[-]/, '')
+  g['Banner'].gsub!(/[-]/, '')
+
   # Strip any extra numbers.
-  g['Banner ID'] = g['Banner ID'][0..8]
+  g['Banner'] = g['Banner'][0..8]
+
   # Set invalid IDs to blank strings.
-  unless g['Banner ID'] =~ /^[0-9]{9}$/
-    g['Banner ID'] = ''
+  # Accept 9 Digits or 'AC/AM' followed by 7 digits.
+  unless g['Banner'] =~ /^[0-9]{9}|A[CM][0-9]{7}$/
+    g['Banner'] = ''
   end
+
+  # Clean Received Date
+  g['Received Date'] = g['Received Date'].split[0]
 end
 
 # Clean phone numbers.
-gifts.each do |g|
-  [g['Phone Dev Home'], g['Phone Dev Cell']].each do |phone|
-    phone = phone.to_s
-    phone.gsub!(/[-()_\.\s]/, '') # Remove any symbols
-    phone.insert(3, '-') unless phone.length < 3 # Add first hyphen.
-    phone.insert(7, '-') if phone.length >= 8 # Add second hyphen.
-  end
-end
+# gifts.each do |g|
+#   [g['Phone Dev Home'], g['Phone Dev Cell']].each do |phone|
+#     phone = phone.to_s
+#     phone.gsub!(/[-()_\.\s]/, '') # Remove any symbols
+#     phone.insert(3, '-') unless phone.length < 3 # Add first hyphen.
+#     phone.insert(7, '-') if phone.length >= 8 # Add second hyphen.
+#   end
+# end
 
-# Sort gifts by Banner ID.
-gifts.sort_by! { |gift| [gift['Banner ID'], gift['Account ID']] }
+# Sort gifts by Banner.
+gifts.sort_by! { |gift| [gift['Banner'], gift['Account ID']] }
 
 # Calculate gift_total
 gift_total = 0
@@ -145,18 +151,17 @@ gifts.each { |g| adjustments << g if adjustment_ids.include?(g['Account ID']) }
 gifts -= adjustments
 
 # ==============================
-# Find gifts with no Banner IDs.
+# Find gifts with no Banners.
 # ==============================
 
 gifts_with_no_id = []
 gifts.each do |gift|
-  gifts_with_no_id << gift if gift['Banner ID'].empty?
+  gifts_with_no_id << gift if gift['Banner'].empty?
 end
 
 entry_headers = 'Paid Date',
                 'Banner ID',
                 'Amount Paid',
-                'Account Name',
                 'Fund #',
                 'Pay Method',
                 'Address Line 1',
@@ -167,12 +172,12 @@ entry_headers = 'Paid Date',
                 'Zip Code',
                 'Fund Name',
                 'Transaction Type',
-                'Account Name',
+                'Receipted Account Name',
                 'First Name',
                 'Last Name',
-                'Home Phone',
-                'Mobile Phone',
-                'Salutation'
+                # 'Home Phone',
+                # 'Mobile Phone',
+                'Preferred Email Address'
 
 # Add ENTRY, ADJ, DATA MGT headers.
 [entry, adj, data_mgt].each do |sheet|
