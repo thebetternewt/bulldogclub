@@ -14,16 +14,15 @@ def fill_out_sheet(sheet, transactions)
   transactions.each_with_index do |t, i|
     sheet.update_row (i+1),
       t['Received Date'],
-      t['Banner'],
+      t['Banner ID'],
       t['Payment Amount'],
       t['Fund #'],
       t['Pay Method'],
-      t['Billing Address1'],
-      t['Billing Address2'],
-      t['Billing Address3'],
-      t['Billing Address City'],
-      t['Billing Address State'],
-      t['Billing Address Zip Code'],
+      t['Address1'],
+      t['Address2'],
+      t['City'],
+      t['State'],
+      t['Code'],
       t['Allocation'],
       t['Paycode Name'],
       t['Receipted Account Name'],
@@ -80,19 +79,21 @@ end
 
 gifts.each do |g|
   # Convert nil Banner IDs to empty strings.
-  g['Banner'] = g['Banner'].to_s
+  g['Banner ID'] = g['Banner ID'].to_s
 
   # Remove any dashes.
-  g['Banner'].gsub!(/[-]/, '')
+  g['Banner ID'].gsub!(/[-]/, '')
 
   # Strip any extra numbers.
-  g['Banner'] = g['Banner'][0..8]
+  g['Banner ID'] = g['Banner ID'][0..8]
 
   # Set invalid IDs to blank strings.
   # Accept 9 Digits or 'AC/AM' followed by 7 digits.
-  unless g['Banner'] =~ /^[0-9]{9}|A[CM][0-9]{7}$/
-    g['Banner'] = ''
+  unless g['Banner ID'] =~ /^[0-9]{9}|A[CM][0-9]{7}$/
+    g['Banner ID'] = ''
   end
+
+  puts g['Banner ID']
 
   # Clean Received Date
   g['Received Date'] = g['Received Date'].split[0]
@@ -109,7 +110,7 @@ end
 # end
 
 # Sort gifts by Banner.
-gifts.sort_by! { |gift| [gift['Banner'], gift['Account ID']] }
+gifts.sort_by! { |gift| [gift['Banner ID'], gift['Account ID']] }
 
 # Calculate gift_total
 gift_total = 0
@@ -156,7 +157,7 @@ gifts -= adjustments
 
 gifts_with_no_id = []
 gifts.each do |gift|
-  gifts_with_no_id << gift if gift['Banner'].empty?
+  gifts_with_no_id << gift if gift['Banner ID'].empty?
 end
 
 entry_headers = 'Paid Date',
@@ -166,7 +167,6 @@ entry_headers = 'Paid Date',
                 'Pay Method',
                 'Address Line 1',
                 'Address Line 2',
-                'Address Line 3',
                 'City',
                 'State',
                 'Zip Code',
